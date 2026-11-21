@@ -66,7 +66,9 @@ func main() {
 		logger.Info("starting mcp-bash server",
 			"transport", cfg.Transport,
 			"addr", cfg.Addr,
-			"path", cfg.MCPPath,
+			"base_path", cfg.BasePath,
+			"path", cfg.MCPRoute(),
+			"health_path", cfg.HealthRoute(),
 			"stateless", cfg.Stateless,
 			"home", cfg.HomeDir,
 		)

@@ -10,6 +10,8 @@ services:
     environment:
       MCP_TRANSPORT: streamable-http
       MCP_ADDR: ":8080"
+      # Optional URL base path prefix to host all routes (e.g. /instance1/mcp and /instance1/healthz):
+      # MCP_BASE_PATH: "/instance1"
       MCP_DEFAULT_TIMEOUT_SECONDS: "60"
       MCP_MAX_TIMEOUT_SECONDS: "600"
       MCP_MAX_OUTPUT_BYTES: "131072"

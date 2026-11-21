@@ -74,11 +74,12 @@ func NewMCPServer(r *runner.Runner, logger *slog.Logger) *mcp.Server {
 	return s
 }
 
-// NewHTTPMux builds the HTTP handler exposing /healthz and the configured MCP transport endpoint.
+// NewHTTPMux builds the HTTP handler exposing the configured health endpoint
+// and MCP transport endpoint (including any configured base path).
 func NewHTTPMux(cfg config.Config, mcpServer *mcp.Server, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(exactRoutePattern(cfg.HealthRoute()), func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -95,6 +96,8 @@ func NewHTTPMux(cfg config.Config, mcpServer *mcp.Server, logger *slog.Logger) h
 		return mcpServer
 	}
 
+	mcpPattern := exactRoutePattern(cfg.MCPRoute())
+
 	switch cfg.Transport {
 	case config.TransportStreamableHTTP:
 		handler := mcp.NewStreamableHTTPHandler(getServer, &mcp.StreamableHTTPOptions{
@@ -102,13 +105,20 @@ func NewHTTPMux(cfg config.Config, mcpServer *mcp.Server, logger *slog.Logger) h
 			DisableLocalhostProtection: true,
 			Logger:                     logger,
 		})
-		mux.Handle(cfg.MCPPath, handler)
+		mux.Handle(mcpPattern, handler)
 	case config.TransportSSE:
 		handler := mcp.NewSSEHandler(getServer, &mcp.SSEOptions{
 			DisableLocalhostProtection: true,
 		})
-		mux.Handle(cfg.MCPPath, handler)
+		mux.Handle(mcpPattern, handler)
 	}
 
 	return mux
+}
+
+func exactRoutePattern(route string) string {
+	if route == "/" {
+		return "/{$}"
+	}
+	return route
 }

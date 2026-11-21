@@ -2,11 +2,14 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -19,6 +22,7 @@ const (
 type Config struct {
 	Transport      string
 	Addr           string
+	BasePath       string
 	MCPPath        string
 	Stateless      bool
 	HomeDir        string
@@ -26,6 +30,20 @@ type Config struct {
 	DefaultTimeout time.Duration
 	MaxTimeout     time.Duration
 	MaxOutputBytes int
+}
+
+// HealthRoute returns the normalized HTTP path for the health check endpoint.
+func (c Config) HealthRoute() string {
+	return joinHTTPPath(c.BasePath, "/healthz")
+}
+
+// MCPRoute returns the normalized HTTP path for the MCP transport endpoint,
+// or an empty string if MCPPath is unset (for example, in stdio mode).
+func (c Config) MCPRoute() string {
+	if strings.TrimSpace(c.MCPPath) == "" {
+		return ""
+	}
+	return joinHTTPPath(c.BasePath, c.MCPPath)
 }
 
 // LoadFromEnv loads configuration from environment variables and validates all settings.
@@ -48,17 +66,28 @@ func LoadFromEnv() (Config, error) {
 		addr = ":8080"
 	}
 
-	mcpPath := strings.TrimSpace(os.Getenv("MCP_PATH"))
-	if mcpPath == "" {
+	rawBasePath := strings.TrimSpace(os.Getenv("MCP_BASE_PATH"))
+	if rawBasePath != "" {
+		if err := validateHTTPPath("MCP_BASE_PATH", rawBasePath); err != nil {
+			return Config{}, err
+		}
+	}
+	basePath := cleanBasePath(rawBasePath)
+
+	rawMCPPath := strings.TrimSpace(os.Getenv("MCP_PATH"))
+	var mcpPath string
+	if rawMCPPath == "" {
 		switch transport {
 		case TransportStreamableHTTP:
 			mcpPath = "/mcp"
 		case TransportSSE:
 			mcpPath = "/sse"
 		}
-	}
-	if mcpPath != "" && !strings.HasPrefix(mcpPath, "/") {
-		mcpPath = "/" + mcpPath
+	} else {
+		if err := validateHTTPPath("MCP_PATH", rawMCPPath); err != nil {
+			return Config{}, err
+		}
+		mcpPath = cleanRoutePath(rawMCPPath)
 	}
 
 	stateless := false
@@ -109,9 +138,10 @@ func LoadFromEnv() (Config, error) {
 		return Config{}, err
 	}
 
-	return Config{
+	cfg := Config{
 		Transport:      transport,
 		Addr:           addr,
+		BasePath:       basePath,
 		MCPPath:        mcpPath,
 		Stateless:      stateless,
 		HomeDir:        homeDir,
@@ -119,7 +149,71 @@ func LoadFromEnv() (Config, error) {
 		DefaultTimeout: time.Duration(defaultTimeoutSec) * time.Second,
 		MaxTimeout:     time.Duration(maxTimeoutSec) * time.Second,
 		MaxOutputBytes: maxOutputBytes,
-	}, nil
+	}
+	if cfg.Transport != TransportStdio && cfg.MCPRoute() == cfg.HealthRoute() {
+		return Config{}, fmt.Errorf("invalid MCP_PATH %q: conflicts with health endpoint %q", cfg.MCPPath, cfg.HealthRoute())
+	}
+
+	return cfg, nil
+}
+
+func validateHTTPPath(envName, raw string) error {
+	if strings.Contains(raw, "://") {
+		return fmt.Errorf("invalid %s %q: must be a URL path (e.g. \"/path\"), not a full URL", envName, raw)
+	}
+	for _, r := range raw {
+		if unicode.IsSpace(r) || r < 0x20 || r == 0x7f {
+			return fmt.Errorf("invalid %s %q: must not contain whitespace or control characters", envName, raw)
+		}
+		switch r {
+		case '?', '#', '{', '}', '\\':
+			return fmt.Errorf("invalid %s %q: must not contain %q", envName, raw, string(r))
+		}
+	}
+	if _, err := url.PathUnescape(raw); err != nil {
+		return fmt.Errorf("invalid %s %q: invalid percent-encoding: %w", envName, raw, err)
+	}
+	for _, seg := range strings.Split(raw, "/") {
+		if seg == "." || seg == ".." {
+			return fmt.Errorf("invalid %s %q: must not contain %q path segments", envName, raw, seg)
+		}
+	}
+	return nil
+}
+
+func cleanBasePath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	cleaned := path.Clean("/" + trimmed)
+	if cleaned == "/" {
+		return ""
+	}
+	return cleaned
+}
+
+func cleanRoutePath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	return path.Clean("/" + trimmed)
+}
+
+func joinHTTPPath(basePath, routePath string) string {
+	base := cleanBasePath(basePath)
+	route := cleanRoutePath(routePath)
+	if route == "" {
+		return base
+	}
+	if base == "" {
+		return route
+	}
+	if route == "/" {
+		return base
+	}
+	return base + route
 }
 
 func parsePositiveIntEnv(key string, fallback int) (int, error) {

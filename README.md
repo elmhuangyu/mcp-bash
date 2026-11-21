@@ -4,7 +4,7 @@ A Docker-hosted Bash MCP server written in Go using the official MCP Go SDK (`gi
 
 ## Features
 
-- **Streamable HTTP by default**: Listens on `:8080` exposing `/mcp` and `/healthz`, with optional `sse` and `stdio` transports configurable via `MCP_TRANSPORT`.
+- **Streamable HTTP by default**: Listens on `:8080` exposing `/mcp` and `/healthz` (with optional `MCP_BASE_PATH` prefixing for subpath hosting), and optional `sse` and `stdio` transports configurable via `MCP_TRANSPORT`.
 - **Stateless command execution**: Every `bash` tool call runs in an independent `bash -c` process group with optional `cwd` and `timeout_seconds`, terminating the entire process group on timeout or cancellation to avoid orphaned child processes.
 - **Debian 13 base image**: Built on `debian:13-slim` at runtime, with prebuilt images published to `ghcr.io/elmhuangyu/mcp-bash:latest`.
 - **Unprivileged execution (`UID 99 / GID 100`)**: Runs as non-root `99:100` (`nobody:users`) with no `sudo`.
@@ -61,13 +61,25 @@ Example JSON configuration:
 }
 ```
 
+### Hosting Multiple Instances on One Domain (Subpath Hosting)
+
+Set `MCP_BASE_PATH` to mount an instance's MCP and `/healthz` routes under a URL path prefix so multiple `mcp-bash` instances can share a single domain behind a reverse proxy:
+
+- Instance 1 (`MCP_BASE_PATH=/bash-1`): exposes `http://<your-host>:8080/bash-1/mcp` and `http://<your-host>:8080/bash-1/healthz`
+- Instance 2 (`MCP_BASE_PATH=/bash-2`): exposes `http://<your-host>:8080/bash-2/mcp` and `http://<your-host>:8080/bash-2/healthz`
+
+If you want the MCP endpoint directly at `http://<your-host>:8080/bash-1` (without `/mcp`), combine `MCP_BASE_PATH=/bash-1` with `MCP_PATH=/` (the health check remains at `/bash-1/healthz`).
+
+When placing `mcp-bash` behind a reverse proxy, forward the full request path without stripping the prefix so both Streamable HTTP and SSE session endpoints resolve under the shared domain.
+
 ## Environment Variables
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `MCP_TRANSPORT` | `streamable-http` | Transport mode: `streamable-http` (alias `http`), `sse`, or `stdio` |
 | `MCP_ADDR` | `:8080` | HTTP listen address |
-| `MCP_PATH` | `/mcp` (`/sse` for SSE) | MCP HTTP route path |
+| `MCP_BASE_PATH` | *(empty)* | Optional URL base path prefix (e.g. `/bash-1`) applied to both the MCP and `/healthz` endpoints |
+| `MCP_PATH` | `/mcp` (`/sse` for SSE) | MCP HTTP route path relative to `MCP_BASE_PATH` (`/` serves MCP directly at `MCP_BASE_PATH`) |
 | `MCP_STATELESS` | `false` | Enable sessionless Streamable HTTP mode |
 | `MCP_BASH_PATH` | `/bin/bash` | Path to the `bash` binary |
 | `MCP_DEFAULT_TIMEOUT_SECONDS` | `60` | Default per-command timeout in seconds |

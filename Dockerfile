@@ -91,6 +91,6 @@ WORKDIR /home/agent
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8080/healthz || exit 1
+    CMD base="$(printf '%s' "${MCP_BASE_PATH:-}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr -s '/')"; base="${base#/}"; base="${base%/}"; addr="$(printf '%s' "${MCP_ADDR:-}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"; port="${addr##*:}"; port="${port:-8080}"; curl -fsS "http://127.0.0.1:${port}${base:+/${base}}/healthz" || exit 1
 
 ENTRYPOINT ["/usr/local/bin/mcp-bash"]
