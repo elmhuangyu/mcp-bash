@@ -1,0 +1,18 @@
+services:
+  mcp-bash:
+    build: .
+    image: mcp-bash:latest
+    container_name: mcp-bash
+    user: "99:100"
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      MCP_TRANSPORT: streamable-http
+      MCP_ADDR: ":8080"
+      MCP_DEFAULT_TIMEOUT_SECONDS: "60"
+      MCP_MAX_TIMEOUT_SECONDS: "600"
+      MCP_MAX_OUTPUT_BYTES: "131072"
+    # 如需持久化容器内安装到 $HOME/.local 的工具或临时文件，可取消下面注释：
+    # volumes:
+    #   - ./data/agent-home:/home/agent
