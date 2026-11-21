@@ -1,5 +1,9 @@
 .git
 .gitignore
+.github
+.agents
 *.md
 docker-compose.yml
+justfile
+build/
 data/

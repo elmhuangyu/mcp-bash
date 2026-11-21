@@ -1,3 +1,4 @@
 /mcp-bash
 *.out
 data/
+build/

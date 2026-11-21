@@ -7,13 +7,13 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mcp-bash/internal/config"
-	"mcp-bash/internal/runner"
+	"github.com/elmhuangyu/mcp-bash/internal/config"
+	"github.com/elmhuangyu/mcp-bash/internal/runner"
 )
 
 const ServerInstructions = `You are connected to mcp-bash, a Debian 13 Linux Docker environment running as an unprivileged user (UID 99 / GID 100, non-root, no sudo).
 
-Pre-installed tools include: bash, python3 (with pip and venv), lightpanda (headless browser), git, curl, wget, fd (fd-find), rg (ripgrep), tar, xz, make, just, jq, and standard GNU/CLI utilities.
+Pre-installed tools include: bash, python3 (with pip and venv), lightpanda (headless browser), git, gh (GitHub CLI), curl, wget, fd (fd-find), rg (ripgrep), tar, xz, make, just, jq, and standard GNU/CLI utilities.
 
 Dependency installation rule:
 - If you need to install extra dependencies, Python packages, or standalone binaries, install them under $HOME/.local and place executables in $HOME/.local/bin (which is already on PATH).
@@ -28,7 +28,7 @@ const BashToolDescription = `Execute a bash command inside the Debian 13 contain
 
 Environment notes:
 - Runs as an unprivileged user (UID 99 / GID 100, no sudo).
-- Pre-installed: bash, python3 (pip/venv), lightpanda, git, curl, wget, fd, rg, tar, xz, make, just, jq.
+- Pre-installed: bash, python3 (pip/venv), lightpanda, git, gh, curl, wget, fd, rg, tar, xz, make, just, jq.
 - Install any extra dependencies or binaries under $HOME/.local / $HOME/.local/bin (already on PATH). Do not write to system paths or use apt-get/sudo.
 - Each call runs in an independent bash process; pass cwd if you need a specific directory.`
 

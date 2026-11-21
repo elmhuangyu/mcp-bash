@@ -12,9 +12,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mcp-bash/internal/config"
-	"mcp-bash/internal/runner"
-	"mcp-bash/internal/server"
+	"github.com/elmhuangyu/mcp-bash/internal/config"
+	"github.com/elmhuangyu/mcp-bash/internal/runner"
+	"github.com/elmhuangyu/mcp-bash/internal/server"
 )
 
 func main() {

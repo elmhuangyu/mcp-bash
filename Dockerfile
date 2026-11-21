@@ -12,6 +12,7 @@ FROM debian:13-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG LIGHTPANDA_VERSION=1.0.5
+ARG GH_VERSION=2.105.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
@@ -52,6 +53,19 @@ RUN arch="$(dpkg --print-architecture)" \
       "https://github.com/lightpanda-io/browser/releases/download/${LIGHTPANDA_VERSION}/lightpanda-${lp_arch}-linux" \
  && chmod 0755 /usr/local/bin/lightpanda \
  && /usr/local/bin/lightpanda version
+
+RUN arch="$(dpkg --print-architecture)" \
+ && case "${arch}" in \
+      amd64|arm64) ;; \
+      *) echo "Unsupported architecture for gh: ${arch}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL --retry 3 --retry-delay 2 \
+      -o /tmp/gh.tar.gz \
+      "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.tar.gz" \
+ && tar -xzf /tmp/gh.tar.gz -C /tmp \
+ && install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${arch}/bin/gh" /usr/local/bin/gh \
+ && rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_VERSION}_linux_${arch}" \
+ && /usr/local/bin/gh --version
 
 RUN (getent group 100 >/dev/null || groupadd -g 100 users) \
  && (getent passwd 99 >/dev/null || useradd --uid 99 --gid 100 --home-dir /home/agent --create-home --shell /bin/bash agent) \

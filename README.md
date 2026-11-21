@@ -1,34 +1,37 @@
 # mcp-bash
 
-A Docker-hosted Bash MCP server written in Go using the official MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`). It exposes a `bash` tool over Streamable HTTP (`/mcp`) by default, designed for running inside internal networks or Docker hosts such as Unraid.
+A Docker-hosted Bash MCP server written in Go using the official MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`), hosted at [github.com/elmhuangyu/mcp-bash](https://github.com/elmhuangyu/mcp-bash). It exposes a `bash` tool over Streamable HTTP (`/mcp`) by default, designed for running inside internal networks or Docker hosts such as Unraid.
 
 ## Features
 
 - **Streamable HTTP by default**: Listens on `:8080` exposing `/mcp` and `/healthz`, with optional `sse` and `stdio` transports configurable via `MCP_TRANSPORT`.
 - **Stateless command execution**: Every `bash` tool call runs in an independent `bash -c` process group with optional `cwd` and `timeout_seconds`, terminating the entire process group on timeout or cancellation to avoid orphaned child processes.
-- **Debian 13 base image**: Built on `debian:13-slim` at runtime.
+- **Debian 13 base image**: Built on `debian:13-slim` at runtime, with prebuilt images published to `ghcr.io/elmhuangyu/mcp-bash:latest`.
 - **Unprivileged execution (`UID 99 / GID 100`)**: Runs as non-root `99:100` (`nobody:users`) with no `sudo`.
-- **Pre-installed tools**: Includes `bash`, `python3` (`pip` and `venv`), `lightpanda` (headless browser with `LIGHTPANDA_DISABLE_TELEMETRY=true` by default; version controlled via build arg `LIGHTPANDA_VERSION=1.0.5`), `git`, `curl`, `fd` (symlinked from `fdfind`), `rg` (ripgrep), `wget`, `tar`, `xz`, `make`, `just`, `jq`, `gawk`, `file`, `tree`, `unzip`, `openssh-client`, etc.
+- **Pre-installed tools**: Includes `bash`, `python3` (`pip` and `venv`), `lightpanda` (headless browser with `LIGHTPANDA_DISABLE_TELEMETRY=true` by default; version controlled via build arg `LIGHTPANDA_VERSION=1.0.5`), `git`, `gh` (GitHub CLI; version controlled via build arg `GH_VERSION=2.105.0`), `curl`, `fd` (symlinked from `fdfind`), `rg` (ripgrep), `wget`, `tar`, `xz`, `make`, `just`, `jq`, `gawk`, `file`, `tree`, `unzip`, `openssh-client`, etc.
 - **Built-in agent instructions**: Server `Instructions` and tool descriptions inform connected AI agents about pre-installed tools and non-root constraints, directing any extra dependencies or binaries to `$HOME/.local` and `$HOME/.local/bin` (already on `PATH`, with `PIP_USER=1` and `PIP_BREAK_SYSTEM_PACKAGES=1` preconfigured).
 
 ## Quick Start
 
 ### Docker Compose
 
+Run using the prebuilt `ghcr.io/elmhuangyu/mcp-bash:latest` image (or add `--build` to build locally from `Dockerfile`):
+
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 ### Docker CLI
 
+Pull and run the prebuilt image (or build locally first with `just build-image` / `docker build -t mcp-bash:latest .`):
+
 ```bash
-docker build -t mcp-bash:latest .
 docker run -d \
   --name mcp-bash \
   --user 99:100 \
   --restart unless-stopped \
   -p 8080:8080 \
-  mcp-bash:latest
+  ghcr.io/elmhuangyu/mcp-bash:latest
 ```
 
 Verify health:
@@ -77,3 +80,16 @@ Example JSON configuration:
 - `$HOME` defaults to `/home/agent`, owned by `99:100`.
 - To persist Python packages or CLI tools installed inside the container, mount a host volume to `/home/agent` with ownership `99:100`.
 - The image prepends `/home/agent/.local/bin` to `PATH` and sets `PYTHONUSERBASE=/home/agent/.local`, `PIP_USER=1`, and `PIP_BREAK_SYSTEM_PACKAGES=1` so `pip install --user <pkg>` works out of the box.
+
+## Development
+
+Requires Go and [just](https://github.com/casey/just).
+
+- `just fmt` - format Go source files (`goimports`)
+- `just lint` - lint Go source files (`golangci-lint`)
+- `just build` - build the `mcp-bash` binary into `build/`
+- `just test` - run tests (`go test -race ./...`)
+- `just build-image` - build the Docker image locally
+- `just tidy` - run `go mod tidy`
+- `just update-deps` - update Go module dependencies
+- `just run` - run the `mcp-bash` server locally

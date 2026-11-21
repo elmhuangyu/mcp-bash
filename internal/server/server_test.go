@@ -12,8 +12,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mcp-bash/internal/config"
-	"mcp-bash/internal/runner"
+	"github.com/elmhuangyu/mcp-bash/internal/config"
+	"github.com/elmhuangyu/mcp-bash/internal/runner"
 )
 
 func setupTestHTTPServer(t *testing.T) (*httptest.Server, string) {
@@ -46,7 +46,7 @@ func TestHealthz(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /healthz error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
@@ -92,7 +92,7 @@ func TestStreamableHTTPMCPServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("client.Connect() failed (possible localhost protection failure): %v", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	initRes := session.InitializeResult()
 	if initRes == nil {
@@ -104,6 +104,7 @@ func TestStreamableHTTPMCPServer(t *testing.T) {
 		"python3",
 		"lightpanda",
 		"git",
+		"gh",
 		"curl",
 		"wget",
 		"fd",
