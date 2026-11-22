@@ -80,6 +80,7 @@ When placing `mcp-bash` behind a reverse proxy, forward the full request path wi
 | `MCP_ADDR` | `:8080` | HTTP listen address |
 | `MCP_BASE_PATH` | *(empty)* | Optional URL base path prefix (e.g. `/bash-1`) applied to both the MCP and `/healthz` endpoints |
 | `MCP_PATH` | `/mcp` (`/sse` for SSE) | MCP HTTP route path relative to `MCP_BASE_PATH` (`/` serves MCP directly at `MCP_BASE_PATH`) |
+| `MCP_ACCESS_TOKEN` | *(empty)* | Optional access token for the MCP HTTP endpoint (passed via `?access_token=<token>` or `Authorization: Bearer <token>`); `/healthz` remains unauthenticated |
 | `MCP_STATELESS` | `false` | Enable sessionless Streamable HTTP mode |
 | `MCP_BASH_PATH` | `/bin/bash` | Path to the `bash` binary |
 | `MCP_DEFAULT_TIMEOUT_SECONDS` | `60` | Default per-command timeout in seconds |

@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -98,22 +100,52 @@ func NewHTTPMux(cfg config.Config, mcpServer *mcp.Server, logger *slog.Logger) h
 
 	mcpPattern := exactRoutePattern(cfg.MCPRoute())
 
+	var mcpHandler http.Handler
 	switch cfg.Transport {
 	case config.TransportStreamableHTTP:
-		handler := mcp.NewStreamableHTTPHandler(getServer, &mcp.StreamableHTTPOptions{
+		mcpHandler = mcp.NewStreamableHTTPHandler(getServer, &mcp.StreamableHTTPOptions{
 			Stateless:                  cfg.Stateless,
 			DisableLocalhostProtection: true,
 			Logger:                     logger,
 		})
-		mux.Handle(mcpPattern, handler)
 	case config.TransportSSE:
-		handler := mcp.NewSSEHandler(getServer, &mcp.SSEOptions{
+		mcpHandler = mcp.NewSSEHandler(getServer, &mcp.SSEOptions{
 			DisableLocalhostProtection: true,
 		})
-		mux.Handle(mcpPattern, handler)
+	}
+	if mcpHandler != nil {
+		if cfg.AccessToken != "" {
+			mcpHandler = requireAccessToken(cfg.AccessToken, mcpHandler)
+		}
+		mux.Handle(mcpPattern, mcpHandler)
 	}
 
 	return mux
+}
+
+func requireAccessToken(expected string, next http.Handler) http.Handler {
+	expectedBytes := []byte(expected)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := extractAccessToken(r)
+		if token == "" || subtle.ConstantTimeCompare([]byte(token), expectedBytes) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func extractAccessToken(r *http.Request) string {
+	if token := r.URL.Query().Get("access_token"); token != "" {
+		return token
+	}
+	auth := strings.TrimSpace(r.Header.Get("Authorization"))
+	const bearerPrefix = "Bearer "
+	if len(auth) > len(bearerPrefix) && strings.EqualFold(auth[:len(bearerPrefix)], bearerPrefix) {
+		return strings.TrimSpace(auth[len(bearerPrefix):])
+	}
+	return ""
 }
 
 func exactRoutePattern(route string) string {

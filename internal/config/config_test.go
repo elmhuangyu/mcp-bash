@@ -12,6 +12,7 @@ func clearConfigEnv(t *testing.T) {
 		"MCP_ADDR",
 		"MCP_BASE_PATH",
 		"MCP_PATH",
+		"MCP_ACCESS_TOKEN",
 		"MCP_STATELESS",
 		"MCP_BASH_PATH",
 		"MCP_DEFAULT_TIMEOUT_SECONDS",
@@ -52,6 +53,9 @@ func TestLoadFromEnvDefaults(t *testing.T) {
 	if cfg.Stateless {
 		t.Errorf("Stateless = true, want false")
 	}
+	if cfg.AccessToken != "" {
+		t.Errorf("AccessToken = %q, want empty", cfg.AccessToken)
+	}
 	if cfg.HomeDir != "/home/agent" {
 		t.Errorf("HomeDir = %q, want %q", cfg.HomeDir, "/home/agent")
 	}
@@ -75,6 +79,7 @@ func TestLoadFromEnvOverridesAndNormalization(t *testing.T) {
 	t.Setenv("MCP_ADDR", "127.0.0.1:9090")
 	t.Setenv("MCP_BASE_PATH", "team/instance-1/")
 	t.Setenv("MCP_PATH", "custom-mcp")
+	t.Setenv("MCP_ACCESS_TOKEN", "  my-secret-token  ")
 	t.Setenv("MCP_STATELESS", "true")
 	t.Setenv("MCP_BASH_PATH", "/usr/bin/bash")
 	t.Setenv("MCP_DEFAULT_TIMEOUT_SECONDS", "30")
@@ -106,6 +111,9 @@ func TestLoadFromEnvOverridesAndNormalization(t *testing.T) {
 	}
 	if !cfg.Stateless {
 		t.Errorf("Stateless = false, want true")
+	}
+	if cfg.AccessToken != "my-secret-token" {
+		t.Errorf("AccessToken = %q, want %q", cfg.AccessToken, "my-secret-token")
 	}
 	if cfg.BashPath != "/usr/bin/bash" {
 		t.Errorf("BashPath = %q, want %q", cfg.BashPath, "/usr/bin/bash")

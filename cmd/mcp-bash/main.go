@@ -69,6 +69,7 @@ func main() {
 			"base_path", cfg.BasePath,
 			"path", cfg.MCPRoute(),
 			"health_path", cfg.HealthRoute(),
+			"auth_enabled", cfg.AccessToken != "",
 			"stateless", cfg.Stateless,
 			"home", cfg.HomeDir,
 		)

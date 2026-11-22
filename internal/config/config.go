@@ -24,6 +24,7 @@ type Config struct {
 	Addr           string
 	BasePath       string
 	MCPPath        string
+	AccessToken    string
 	Stateless      bool
 	HomeDir        string
 	BashPath       string
@@ -90,6 +91,8 @@ func LoadFromEnv() (Config, error) {
 		mcpPath = cleanRoutePath(rawMCPPath)
 	}
 
+	accessToken := strings.TrimSpace(os.Getenv("MCP_ACCESS_TOKEN"))
+
 	stateless := false
 	if raw := strings.TrimSpace(os.Getenv("MCP_STATELESS")); raw != "" {
 		parsed, err := strconv.ParseBool(raw)
@@ -143,6 +146,7 @@ func LoadFromEnv() (Config, error) {
 		Addr:           addr,
 		BasePath:       basePath,
 		MCPPath:        mcpPath,
+		AccessToken:    accessToken,
 		Stateless:      stateless,
 		HomeDir:        homeDir,
 		BashPath:       bashPath,

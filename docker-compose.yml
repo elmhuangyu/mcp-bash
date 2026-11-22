@@ -12,6 +12,8 @@ services:
       MCP_ADDR: ":8080"
       # Optional URL base path prefix to host all routes (e.g. /instance1/mcp and /instance1/healthz):
       # MCP_BASE_PATH: "/instance1"
+      # Optional access token for the MCP endpoint (?access_token=... or Authorization: Bearer ...):
+      # MCP_ACCESS_TOKEN: "change-me"
       MCP_DEFAULT_TIMEOUT_SECONDS: "60"
       MCP_MAX_TIMEOUT_SECONDS: "600"
       MCP_MAX_OUTPUT_BYTES: "131072"

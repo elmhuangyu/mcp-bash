@@ -548,3 +548,101 @@ func TestMultipleInstancesOnOneDomain(t *testing.T) {
 	checkInstance(ts.URL+"/inst-a/mcp", homeA)
 	checkInstance(ts.URL+"/inst-b/mcp", homeB)
 }
+
+type bearerAuthTransport struct {
+	base  http.RoundTripper
+	token string
+}
+
+func (b bearerAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	cloned := req.Clone(req.Context())
+	cloned.Header.Set("Authorization", "Bearer "+b.token)
+	return b.base.RoundTrip(cloned)
+}
+
+func TestAccessTokenAuth(t *testing.T) {
+	const secret = "secret-token-123"
+	ts, _ := setupTestHTTPServerWithConfig(t, config.Config{
+		Transport:   config.TransportStreamableHTTP,
+		MCPPath:     "/mcp",
+		AccessToken: secret,
+	})
+
+	// /healthz remains unauthenticated.
+	assertHealthOK(t, ts.Client(), ts.URL+"/healthz")
+
+	// Missing or invalid tokens are rejected with 401.
+	assertStatus(t, ts.Client(), http.MethodPost, ts.URL+"/mcp", http.StatusUnauthorized)
+	assertStatus(t, ts.Client(), http.MethodGet, ts.URL+"/mcp", http.StatusUnauthorized)
+	assertStatus(t, ts.Client(), http.MethodPost, ts.URL+"/mcp?access_token=wrong", http.StatusUnauthorized)
+
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/mcp", nil)
+	if err != nil {
+		t.Fatalf("NewRequest() error: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer wrong")
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatalf("Do() error: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("POST /mcp with wrong Bearer token status = %d, want 401", resp.StatusCode)
+	}
+
+	ctx := context.Background()
+
+	// Valid access_token query parameter works with Streamable HTTP MCP client.
+	client := mcp.NewClient(&mcp.Implementation{
+		Name:    "test-query-auth-client",
+		Version: "0.1.0",
+	}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{
+		Endpoint: ts.URL + "/mcp?access_token=" + secret,
+	}, nil)
+	if err != nil {
+		t.Fatalf("client.Connect() with ?access_token error: %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "bash",
+		Arguments: map[string]any{"command": "echo auth-query-ok"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool() error: %v", err)
+	}
+	if res.IsError || !strings.Contains(callText(t, res), "auth-query-ok") {
+		t.Errorf("unexpected output: isError=%v text=%s", res.IsError, callText(t, res))
+	}
+
+	// Valid Authorization: Bearer header also works.
+	bearerClient := mcp.NewClient(&mcp.Implementation{
+		Name:    "test-bearer-auth-client",
+		Version: "0.1.0",
+	}, nil)
+	bearerSession, err := bearerClient.Connect(ctx, &mcp.StreamableClientTransport{
+		Endpoint: ts.URL + "/mcp",
+		HTTPClient: &http.Client{
+			Transport: bearerAuthTransport{
+				base:  http.DefaultTransport,
+				token: secret,
+			},
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("client.Connect() with Bearer header error: %v", err)
+	}
+	defer func() { _ = bearerSession.Close() }()
+
+	bearerRes, err := bearerSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "bash",
+		Arguments: map[string]any{"command": "echo auth-bearer-ok"},
+	})
+	if err != nil {
+		t.Fatalf("CallTool() with Bearer header error: %v", err)
+	}
+	if bearerRes.IsError || !strings.Contains(callText(t, bearerRes), "auth-bearer-ok") {
+		t.Errorf("unexpected output: isError=%v text=%s", bearerRes.IsError, callText(t, bearerRes))
+	}
+}
